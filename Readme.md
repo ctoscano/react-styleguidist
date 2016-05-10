@@ -115,6 +115,22 @@ Styleguidist generates documentation from 2 sources:
   Any [Markdown](http://daringfireball.net/projects/markdown/) is **allowed** _here_.
   ```
 
+* **Loading examples using doclet tags**
+
+  Additional example files can be specifically associated with components using doclet (`@example`) syntax.
+  The following component will also have an example as loaded from the `extra.examples.md` file.
+
+  ```js
+  /**
+   * Component is described here.
+   *
+   * @example ./extra.examples.md
+   */
+  export default class SomeComponent extends React.Component {
+    // ...
+  }
+  ```
+
 ### Writing code examples
 
 Code examples in Markdown use the ES6+JSX syntax. They can access all the components listed, they are exposed as global variables.
@@ -159,7 +175,7 @@ You *can* use `React.createClass` in your code examples, but if you need a more 
 You can change some settings in the `styleguide.config.js` file in your projectâ€™s root folder.
 
 * **`components`**<br>
-  Type: `String` or `Function`, required<br>
+  Type: `String` or `Function`, required unless `sections` is provided<br>
   - when `String`: a [glob pattern](https://github.com/isaacs/node-glob#glob-primer) that matches all your component modules. Relative to config folder.
   - when `Function`: a function that returns an array of module paths.
 
@@ -182,6 +198,28 @@ You can change some settings in the `styleguide.config.js` file in your projectâ
       });
     }
   };
+  ```
+
+* **`sections`**<br>
+  Type: `Array`
+
+  Allows components to be grouped into sections with a title and optional overview content. Sections
+  can also be content only, with no associated components (for example, a textual introduction). A section
+  definition consists of:<br>
+  - `name` - the title of the section.
+  - `content` (optional) - location of a Markdown file containing the overview content.
+  - `components` (optional) - a string or function providing a list of components. The same rules apply as for the root `components` option.
+
+  Configuring a guide with a textual introduction section, then a UI section would look like:
+
+  ```javascript
+  module.exports = {
+    // ...
+    sections: [
+      {name: 'Introduction', content: 'docs/introduction.md'},
+      {name: 'UI Components', content: 'docs/ui.md', components: 'lib/components/ui/*.js'}
+    ]
+  }
   ```
 
 * **`skipComponentsWithoutExample`**<br>
@@ -263,6 +301,65 @@ You can change some settings in the `styleguide.config.js` file in your projectâ
       return webpackConfig;
     }
   };
+  ```
+
+* **`propsParser`**<br>
+  Type: `Function`, optional<br>
+  Function that allows you to override the mechanism used to parse props from a source file. Default mechanism is using
+  [react-docgen](https://github.com/reactjs/react-docgen) to parse props.
+
+  ```javascript
+  module.exports = {
+    // ...
+    propsParser: function(filePath, source) {
+      return require('react-docgen').parse(source);
+    }
+  }
+  ```
+
+* **`resolver`**<br>
+  Type: `Function`, optional<br>
+  Function that allows you to override the mechanism used to identify classes/components to analyze. Default
+  behaviour is to find a single exported component in each file (and failing if more than one export is found).
+  Other behaviours can be configured, such as finding all components or writing a custom detection method. See
+  the [react-docgen resolver documentation](https://github.com/reactjs/react-docgen#resolver) for more
+  information about resolvers.
+
+  ```javascript
+  module.exports = {
+    // ...
+    resolver: require('react-docgen').resolver.findAllComponentDefinitions
+  }
+  ```
+
+* **`handlers`**<br>
+  Type: `Array of Function`, optional<br>
+  Array of functions used to process the discovered components and generate documentation objects. Default
+  behaviours include discovering component documentation blocks, prop types and defaults. If setting this
+  property, it is best to build from the default `react-docgen` handler list, such as in the example below.
+  See the [react-docgen handler documentation](https://github.com/reactjs/react-docgen#handlers) for more
+  information about handlers.
+
+  ```javascript
+  module.exports = {
+    // ...
+    handlers: require('react-docgen').defaultHandlers.concat(function(documentation, path) {
+      // Calculate a display name for components based upon the declared class name.
+      if (path.value.type == 'ClassDeclaration' && path.value.id.type == 'Identifier') {
+        documentation.set('displayName', path.value.id.name);
+
+        // Calculate the key required to find the component in the module exports
+        if (path.parentPath.value.type == 'ExportNamedDeclaration') {
+          documentation.set('path', path.value.id.name);
+        }
+      }
+
+      // The component is the default export
+      if (path.parentPath.value.type == 'ExportDefaultDeclaration') {
+        documentation.set('path', 'default');
+      }
+    }))
+  }
   ```
 
 
@@ -386,7 +483,7 @@ export default class Wrapper extends Component {
 
 1. Put `debugger;` statement at the beginning of your code.
 2. Press the ![Debugger](http://wow.sapegin.me/image/2n2z0b0l320m/debugger.png) button in your browserâ€™s developer tools.
-3. Press the ![Continue](http://wow.sapegin.me/image/2d2z1Y2o1z1m/continue.png) button and the debugger will stop exception a the next exception.
+3. Press the ![Continue](http://wow.sapegin.me/image/2d2z1Y2o1z1m/continue.png) button and the debugger will stop execution at the next exception.
 
 ### Why does the style guide list one of my prop types as `unknown`?
 
